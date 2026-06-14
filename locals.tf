@@ -8,5 +8,6 @@ locals {
         local.tags,
         var.vpc_tags
     )
+    av_zone = slice(data.aws_availability_zones.available.names, 0,2)
     
 }
