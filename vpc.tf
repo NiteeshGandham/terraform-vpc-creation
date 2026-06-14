@@ -12,11 +12,15 @@ resource "aws_internet_gateway" "gw" {
 
 }
 
-resource "aws_subnet" "main" {
-  vpc_id     = aws_vpc.main.id
-  cidr_block = ["10.0.1.0/24","10.0.1.0/24"]
 
-  tags = {
-    Name = "Main"
-  }
-}
+#public subnet
+
+# resource "aws_subnet" "public" {
+#   count = length(var.public_subnet_cidr)
+#   vpc_id     = aws_vpc.main.id
+#   cidr_block = var.public_subnet_cidr[count.index]
+
+#   tags = {
+#     Name = "Main"
+#   }
+# }
