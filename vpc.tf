@@ -50,3 +50,21 @@ resource "aws_internet_gateway" "gw" {
 
      )
    }
+
+   #private subnets
+ resource "aws_subnet" "database" {
+   count = length(var.database_subnet_cidr)
+   vpc_id     = aws_vpc.main.id
+   cidr_block = var.database_subnet_cidr[count.index]
+   availability_zone = local.av_zone[count.index]
+
+   tags =  merge (
+      local.tags,
+      # roboshop-dev-private-us-east-1a
+      {
+        Name =  "${var.project}-${var.environment}-database-${local.av_zone[count.index]}"
+      },
+      var.subnet_tags
+
+     )
+   }
