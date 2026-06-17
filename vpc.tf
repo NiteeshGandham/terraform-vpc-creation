@@ -51,7 +51,7 @@ resource "aws_internet_gateway" "gw" {
      )
    }
 
-   #private subnets
+   #database subnets
  resource "aws_subnet" "database" {
    count = length(var.database_subnet_cidr)
    vpc_id     = aws_vpc.main.id
