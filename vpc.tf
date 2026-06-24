@@ -1,70 +1,179 @@
 resource "aws_vpc" "main" {
-  cidr_block       = "10.0.0.0/16"
-  instance_tenancy = "default"
-  enable_dns_hostnames = true
-  tags = local.vpc_final_tags
+cidr_block       = "10.0.0.0/16"
+instance_tenancy = "default"
+enable_dns_hostnames = true
+tags = local.vpc_final_tags
 }
 
-resource "aws_internet_gateway" "gw" {
-  vpc_id = aws_vpc.main.id #Association
+resource "aws_internet_gateway" "main" {
+vpc_id = aws_vpc.main.id #Association
 
-  tags = local.vpc_final_tags
+tags = local.vpc_final_tags
 
 } 
 
 
 #public subnet
 
- resource "aws_subnet" "public" {
-   count = length(var.public_subnet_cidr)
-   vpc_id     = aws_vpc.main.id
-   cidr_block = var.public_subnet_cidr[count.index]
-   availability_zone = local.av_zone[count.index]
-   map_public_ip_on_launch = true
+resource "aws_subnet" "public" {
+  count = length(var.public_subnet_cidr)
+  vpc_id     = aws_vpc.main.id
+  cidr_block = var.public_subnet_cidr[count.index]
+  availability_zone = local.av_zone[count.index]
+  map_public_ip_on_launch = true
 
-   tags =  merge (
-      local.tags,
-      # roboshop-dev-public-us-east-1a
-      {
-        Name =  "${var.project}-${var.environment}-public-${local.av_zone[count.index]}"
-      },
-      var.subnet_tags
+  tags =  merge (
+    local.tags,
+    # roboshop-dev-public-us-east-1a
+    {
+      Name =  "${var.project}-${var.environment}-public-${local.av_zone[count.index]}"
+    },
+    var.public_subnet_tags
 
-     )
-   }
+    )
+  }
 
 #private subnets
- resource "aws_subnet" "private" {
-   count = length(var.private_subnet_cidr)
-   vpc_id     = aws_vpc.main.id
-   cidr_block = var.private_subnet_cidr[count.index]
-   availability_zone = local.av_zone[count.index]
+resource "aws_subnet" "private" {
+  count = length(var.private_subnet_cidr)
+  vpc_id     = aws_vpc.main.id
+  cidr_block = var.private_subnet_cidr[count.index]
+  availability_zone = local.av_zone[count.index]
 
-   tags =  merge (
-      local.tags,
-      # roboshop-dev-private-us-east-1a
-      {
-        Name =  "${var.project}-${var.environment}-private-${local.av_zone[count.index]}"
-      },
-      var.subnet_tags
+  tags =  merge (
+    local.tags,
+    # roboshop-dev-private-us-east-1a
+    {
+      Name =  "${var.project}-${var.environment}-private-${local.av_zone[count.index]}"
+    },
+    var.private_subnet_tags
 
-     )
-   }
+    )
+  }
 
-   #database subnets
- resource "aws_subnet" "database" {
-   count = length(var.database_subnet_cidr)
-   vpc_id     = aws_vpc.main.id
-   cidr_block = var.database_subnet_cidr[count.index]
-   availability_zone = local.av_zone[count.index]
+  #database subnets
+resource "aws_subnet" "database" {
+  count = length(var.database_subnet_cidr)
+  vpc_id     = aws_vpc.main.id
+  cidr_block = var.database_subnet_cidr[count.index]
+  availability_zone = local.av_zone[count.index]
 
-   tags =  merge (
-      local.tags,
-      # roboshop-dev-private-us-east-1a
-      {
-        Name =  "${var.project}-${var.environment}-database-${local.av_zone[count.index]}"
-      },
-      var.subnet_tags
+  tags =  merge (
+    local.tags,
+    # roboshop-dev-private-us-east-1a
+    {
+      Name =  "${var.project}-${var.environment}-database-${local.av_zone[count.index]}"
+    },
+    var.database_subnet_tags
 
-     )
-   }
+    )
+  }
+
+
+resource "aws_route_table" "public" {
+vpc_id = aws_vpc.main.id
+
+
+tags = merge (
+  local.tags,
+  {
+    Name = "${var.project}-${var.environment}-public"
+  },
+  var.public_route_table
+)
+
+}
+
+resource "aws_route_table" "private" {
+vpc_id = aws_vpc.main.id
+
+
+tags = merge (
+  local.tags,
+  {
+    Name = "${var.project}-${var.environment}-private"
+  },
+  var.private_route_table
+)
+
+}
+
+resource "aws_route_table" "database" {
+vpc_id = aws_vpc.main.id
+
+
+tags = merge (
+  local.tags,
+  {
+    Name = "${var.project}-${var.environment}-database"
+  },
+  var.database_route_table
+)
+
+}
+
+resource "aws_route" "public" {
+  route_table_id            = aws_route_table.public.id
+  destination_cidr_block    = "0.0.0.0/0"
+  gateway_id = aws_internet_gateway.main.id
+}
+
+
+
+
+
+resource "aws_eip" "nat" {
+  domain = "vpc"
+
+  tags = merge(
+    local.tags,
+    {
+      Name = "${var.project}-${var.environment}-nat"
+    }
+  )
+}
+
+resource "aws_nat_gateway" "main" {
+  allocation_id = aws_eip.nat.id
+  subnet_id     = aws_subnet.public[0].id
+
+  tags = merge(
+    local.tags,
+    {
+      Name = "${var.project}-${var.environment}-nat"
+    }
+  )
+
+  depends_on = [aws_internet_gateway.main]
+}
+
+resource "aws_route" "private" {
+  route_table_id            = aws_route_table.private.id
+  destination_cidr_block    = "0.0.0.0/0"
+  nat_gateway_id = aws_nat_gateway.main.id
+}
+
+resource "aws_route" "database" {
+  route_table_id            = aws_route_table.database.id
+  destination_cidr_block    = "0.0.0.0/0"
+  nat_gateway_id = aws_nat_gateway.main.id
+}
+
+resource "aws_route_table_association" "public" {
+  count = length(aws_subnet.public)
+  subnet_id      = aws_subnet.public[count.index].id
+  route_table_id = aws_route_table.public.id
+}
+
+resource "aws_route_table_association" "private" {
+  count = length(aws_subnet.private)
+  subnet_id      = aws_subnet.private[count.index].id
+  route_table_id = aws_route_table.private.id
+}
+
+resource "aws_route_table_association" "database" {
+  count = length(aws_subnet.database)
+  subnet_id      = aws_subnet.database[count.index].id
+  route_table_id = aws_route_table.database.id
+}
+
