@@ -43,14 +43,16 @@ variable "database_subnet_cidr"{
 }
 
 variable "public_route_table" {
-  type = string
+  type    = map(string)
+  default = {}
 }
 
 variable "private_route_table" {
-  type = string
+  type    = map(string)
+  default = {}
 }
 
 variable "database_route_table" {
-  type = string
-
+  type    = map(string)
+  default = {}
 }
