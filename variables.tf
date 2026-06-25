@@ -12,6 +12,12 @@ variable "vpc_tags" {
 }
 
 
+variable "vpc_cidr" {
+  type    = string
+  default = "10.0.0.0/16"
+}
+
+
 variable "public_subnet_tags" {
   type    = map(string)
   default = {}
@@ -55,4 +61,9 @@ variable "private_route_table" {
 variable "database_route_table" {
   type    = map(string)
   default = {}
+}
+
+variable is_vpc_peering_required {
+  type = bool
+  default =false
 }
